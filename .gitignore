@@ -19,3 +19,6 @@ dist/
 
 # 本地工具数据
 .workbuddy/
+
+# Cloudflare CLI 本地缓存
+.cloudflare/
