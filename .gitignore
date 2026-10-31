@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+._*
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 依赖与构建产物
+node_modules/
+.wrangler/
+dist/
+
+# 本地配置与密钥
+.env
+.env.*
+*.local
+
+# 本地工具数据
+.workbuddy/

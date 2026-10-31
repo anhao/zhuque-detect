@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>朱雀 · AIGC 文本检测</title>
+<meta name="description" content="纯前端 AI 生成文本检测工具，基于腾讯云 EdgeOne Makers 内置的朱雀（Zhuque）模型。粘贴文本即可判断它更像人类还是 AI 写的。">
+<meta name="theme-color" content="#f6f3ef">
+<meta property="og:type" content="website">
+<meta property="og:title" content="朱雀 · AIGC 文本检测">
+<meta property="og:description" content="纯前端 AI 生成文本检测工具 · 基于朱雀模型，粘贴即测，无需后端。">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='11' fill='%23d93b23'/%3E%3Cpath d='M20 7.6c.5 4.4-.3 8.2-1.9 11.6-.6-1.5-1.4-2.6-2.5-3.4-2.9 2.6-4.7 5.3-4.7 8.6 0 4.6 3.4 8.3 9.1 8.3s9.1-3.9 9.1-8.7c0-3.6-2.1-6.7-4.7-9.6.5 2.2.3 3.9-.5 5.2-1.5-3.6-2.7-7.7-3.9-12z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#f6f3ef;
+    --surface:#fffdfb;
+    --surface-2:#faf7f3;
+    --line:#e8dfd5;
+    --line-strong:#d9ccbe;
+    --ink:#211a15;
+    --ink-2:#5d534a;
+    --muted:#9b9085;
+    --brand:#d93b23;
+    --brand-2:#ef7a45;
+    --human:#1d9a72;
+    --suspect:#dd9a2b;
+    --ai:#d93b23;
+    --radius:18px;
+    --shadow:0 1px 2px rgba(33,26,21,.05), 0 14px 34px -14px rgba(33,26,21,.16);
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+    position:relative;
+  }
+  ::selection{background:rgba(217,59,35,.16)}
+
+  .glow{
+    position:fixed;top:-360px;right:-260px;width:880px;height:880px;pointer-events:none;z-index:0;
+    background:radial-gradient(circle at center, rgba(217,59,35,.14), rgba(239,122,69,.06) 45%, transparent 68%);
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:relative;z-index:5;flex:none;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 26px;
+    border-bottom:1px solid var(--line);
+    background:rgba(255,253,251,.78);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  }
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .mark{width:38px;height:38px;flex:none;filter:drop-shadow(0 6px 14px rgba(217,59,35,.32))}
+  .brand-text{min-width:0}
+  .brand-text h1{
+    margin:0;font-size:16px;font-weight:700;letter-spacing:.01em;
+    display:flex;align-items:baseline;gap:8px;white-space:nowrap;
+  }
+  .brand-text h1 span{font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:.04em}
+  .brand-text p{margin:2px 0 0;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .topbar-right{display:flex;align-items:center;gap:10px;flex:none}
+  .keychip{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12px;color:var(--ink-2);
+    padding:7px 11px;border-radius:99px;
+    background:var(--surface-2);border:1px solid var(--line);
+    cursor:pointer;transition:.18s;white-space:nowrap;
+  }
+  .keychip:hover{border-color:var(--line-strong);background:#fff}
+  .dot{width:6px;height:6px;border-radius:50%;background:#c9bdb0;box-shadow:0 0 0 3px rgba(201,189,176,.22)}
+  .keychip.ok .dot{background:var(--human);box-shadow:0 0 0 3px rgba(29,154,114,.16)}
+
+  .btn{
+    border-radius:10px;border:1px solid transparent;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:600;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:9px 16px;transition:.18s;white-space:nowrap;
+  }
+  .btn-ghost{background:#fff;border-color:var(--line-strong);color:var(--ink-2)}
+  .btn-ghost:hover{border-color:rgba(217,59,35,.5);color:var(--brand);background:#fff}
+  .btn-primary{
+    background:linear-gradient(135deg,#e5532f,#c8321b);
+    color:#fff;padding:9px 18px;
+    box-shadow:0 8px 20px -8px rgba(217,59,35,.7), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 12px 24px -8px rgba(217,59,35,.75)}
+  .btn-primary:active{transform:translateY(0)}
+  .btn-primary:disabled{opacity:.7;cursor:progress;transform:none}
+  .btn kbd{
+    font-family:inherit;font-size:11px;font-weight:500;
+    background:rgba(255,255,255,.2);border-radius:5px;padding:2px 5px;letter-spacing:.04em;
+  }
+
+  /* ---------- workspace ---------- */
+  .workspace{
+    position:relative;z-index:1;flex:1;min-height:0;
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;
+    padding:16px 26px 20px;
+  }
+  .panel{
+    min-height:0;display:flex;flex-direction:column;overflow:hidden;
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--shadow);
+  }
+  .panel-head{
+    flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:13px 18px;border-bottom:1px solid var(--line);
+  }
+  .panel-title{font-size:12.5px;font-weight:700;letter-spacing:.06em;color:var(--ink-2)}
+  .panel-title::before{
+    content:"";display:inline-block;width:3px;height:11px;border-radius:2px;
+    background:linear-gradient(180deg,var(--brand-2),var(--brand));
+    margin-right:8px;vertical-align:-1px;
+  }
+  .counter{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .counter b{color:var(--ink-2);font-weight:600}
+  .head-right{display:flex;align-items:center;gap:10px;min-width:0}
+  .meta{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  textarea{
+    flex:1;min-height:0;width:100%;border:none;outline:none;resize:none;
+    padding:20px 22px;background:transparent;color:var(--ink);
+    font-family:inherit;font-size:15px;line-height:1.9;
+  }
+  textarea::placeholder{color:#bdb2a6}
+
+  .panel-foot{
+    flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    padding:11px 14px;border-top:1px solid var(--line);background:var(--surface-2);
+  }
+  .foot-left{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .mini{
+    background:none;border:none;font-family:inherit;font-size:12.5px;color:var(--muted);
+    padding:6px 9px;border-radius:7px;cursor:pointer;transition:.15s;
+  }
+  .mini:hover{background:#f1eae2;color:var(--ink-2)}
+
+  .switch{
+    display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+    font-size:12.5px;color:var(--ink-2);padding:6px 9px;border-radius:7px;
+    user-select:none;margin-left:2px;
+  }
+  .switch:hover{background:#f1eae2}
+  .switch input{position:absolute;opacity:0;pointer-events:none}
+  .track{
+    width:26px;height:15px;border-radius:99px;background:#ded4c8;position:relative;transition:.2s;flex:none;
+  }
+  .track::after{
+    content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
+    background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.18);
+  }
+  .switch input:checked + .track{background:linear-gradient(135deg,var(--brand-2),var(--brand))}
+  .switch input:checked + .track::after{transform:translateX(11px)}
+
+  /* ---------- result ---------- */
+  .result-body{
+    flex:1;min-height:0;overflow-y:auto;padding:16px;
+    display:flex;flex-direction:column;gap:13px;
+  }
+  .result-body::-webkit-scrollbar{width:8px}
+  .result-body::-webkit-scrollbar-thumb{background:#e2d8cc;border-radius:99px;border:2px solid var(--surface)}
+  .result-body::-webkit-scrollbar-track{background:transparent}
+
+  .empty{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;padding:30px 24px;text-align:center;color:var(--muted);
+  }
+  .empty svg{opacity:.55;margin-bottom:6px}
+  .empty h3{margin:0;font-size:14px;font-weight:600;color:var(--ink-2)}
+  .empty p{margin:0;font-size:12.5px;line-height:1.8;max-width:280px}
+  .empty ul{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;text-align:left}
+  .empty li{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;line-height:1.6}
+  .empty li b{color:var(--brand);font-weight:700}
+
+  .verdict{
+    --tone:var(--human);
+    display:flex;align-items:center;gap:18px;
+    padding:18px;border-radius:15px;border:1px solid var(--line);
+    background:linear-gradient(135deg, rgba(29,154,114,.09), rgba(29,154,114,.01) 65%);
+  }
+  .verdict.tone-suspect{--tone:var(--suspect);background:linear-gradient(135deg, rgba(221,154,43,.13), rgba(221,154,43,.01) 65%);border-color:rgba(221,154,43,.28)}
+  .verdict.tone-ai{--tone:var(--ai);background:linear-gradient(135deg, rgba(217,59,35,.11), rgba(217,59,35,.012) 65%);border-color:rgba(217,59,35,.25)}
+
+  .gauge{position:relative;width:104px;height:104px;flex:none}
+  .gauge svg{display:block;width:104px;height:104px}
+  .gauge circle{fill:none;stroke-width:9;stroke-linecap:round}
+  .gauge .track-c{stroke:rgba(33,26,21,.07)}
+  .gauge .arc{
+    stroke:var(--tone);stroke-dasharray:326.7;stroke-dashoffset:326.7;
+    transition:stroke-dashoffset .9s cubic-bezier(.22,.7,.28,1);
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,.12));
+  }
+  .gauge-center{
+    position:absolute;inset:0;display:flex;align-items:baseline;justify-content:center;gap:1px;
+    color:var(--tone);
+  }
+  .gauge-center b{font-size:27px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:104px}
+  .gauge-center span{font-size:12px;font-weight:600;opacity:.75}
+
+  .verdict-text{min-width:0;flex:1}
+  .tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:13.5px;font-weight:700;color:var(--tone);
+    background:rgba(255,255,255,.72);border:1px solid currentColor;
+    padding:5px 11px;border-radius:99px;margin-bottom:8px;
+  }
+  .tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .verdict-text p{margin:0;font-size:12.5px;line-height:1.75;color:var(--ink-2)}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .stat{
+    background:var(--surface-2);border:1px solid var(--line);border-radius:11px;
+    padding:9px 11px;min-width:0;
+  }
+  .stat span{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;white-space:nowrap}
+  .stat b{
+    display:block;font-size:15px;font-weight:650;color:var(--ink);
+    font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  .card{border:1px solid var(--line);border-radius:14px;padding:15px 16px;background:#fff}
+  .card-title{
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:12px;font-weight:700;color:var(--ink-2);letter-spacing:.04em;margin-bottom:13px;
+  }
+  .card-title em{font-style:normal;font-size:11.5px;font-weight:500;color:var(--muted);letter-spacing:0}
+
+  .bar-row{
+    display:grid;grid-template-columns:56px minmax(0,1fr) 48px;align-items:center;gap:10px;
+    font-size:12px;color:var(--ink-2);margin-bottom:9px;
+  }
+  .bar-row:last-child{margin-bottom:0}
+  .bar-track{display:block;height:7px;border-radius:99px;background:#f1eae2;overflow:hidden}
+  .bar-fill{display:block;height:100%;border-radius:99px;width:0;transition:width .8s cubic-bezier(.22,.7,.28,1)}
+  .bar-val{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px}
+  .c-human{background:linear-gradient(90deg,#40b98f,#1d9a72)}
+  .c-suspect{background:linear-gradient(90deg,#f0bc63,#dd9a2b)}
+  .c-ai{background:linear-gradient(90deg,#ef7a45,#d93b23)}
+
+  .segments{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .segment{
+    --tone:var(--human);
+    border:1px solid var(--line);border-left:3px solid var(--tone);
+    border-radius:11px;padding:11px 13px;background:#fffdfb;transition:.18s;
+  }
+  .segment:hover{background:#fff;box-shadow:0 4px 14px -8px rgba(33,26,21,.22)}
+  .segment.tone-suspect{--tone:var(--suspect);border-left-color:var(--suspect)}
+  .segment.tone-ai{--tone:var(--ai);border-left-color:var(--ai)}
+  .seg-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .seg-idx{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:600}
+  .chip{
+    font-size:10.5px;font-weight:700;color:var(--tone);
+    background:rgba(29,154,114,.11);
+    border-radius:99px;padding:2px 8px;letter-spacing:.02em;
+  }
+  .segment.tone-ai .chip{background:rgba(217,59,35,.10)}
+  .segment.tone-suspect .chip{background:rgba(221,154,43,.16)}
+  .seg-conf{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .seg-text{
+    margin:0;font-size:12.5px;line-height:1.72;color:var(--ink-2);
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  }
+
+  details.raw{border-top:1px dashed var(--line);padding-top:11px}
+  details.raw summary{
+    font-size:12px;color:var(--muted);cursor:pointer;list-style:none;
+    display:flex;align-items:center;gap:6px;user-select:none;
+  }
+  details.raw summary::-webkit-details-marker{display:none}
+  details.raw summary::before{content:"›";display:inline-block;transition:.2s;font-size:14px;line-height:1}
+  details.raw[open] summary::before{transform:rotate(90deg)}
+  details.raw summary:hover{color:var(--ink-2)}
+  details.raw pre{
+    margin:10px 0 0;padding:12px;border-radius:10px;background:var(--surface-2);
+    border:1px solid var(--line);font-size:11.5px;line-height:1.65;color:var(--ink-2);
+    max-height:250px;overflow:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+
+  .error-card{
+    border:1px solid rgba(217,59,35,.28);border-radius:14px;padding:16px;
+    background:linear-gradient(135deg, rgba(217,59,35,.08), rgba(217,59,35,.01));
+  }
+  .error-card h4{margin:0 0 6px;font-size:13.5px;color:#b62f18;display:flex;align-items:center;gap:7px}
+  .error-card p{margin:0 0 8px;font-size:12.5px;line-height:1.75;color:var(--ink-2);word-break:break-word}
+  .error-card .hint{font-size:12px;color:var(--muted);line-height:1.7;padding-top:8px;border-top:1px dashed rgba(217,59,35,.2)}
+  .error-card .btn{margin-top:12px;padding:7px 14px;font-size:12.5px}
+
+  .loading{flex:1;display:flex;flex-direction:column;gap:14px;padding:8px 2px}
+  .skel{background:linear-gradient(90deg,#f1eae2 25%,#f8f3ee 37%,#f1eae2 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:10px}
+  @keyframes shimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  .loading-note{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);justify-content:center;margin-bottom:4px}
+  .pulse{width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 1.1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+
+  .spinner{width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:none;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .btn-primary.loading .spinner{display:block}
+  .btn-primary.loading kbd{display:none}
+
+  .icon-btn{
+    width:28px;height:28px;flex:none;display:grid;place-items:center;
+    border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);
+    cursor:pointer;transition:.15s;
+  }
+  .icon-btn:hover{border-color:rgba(217,59,35,.45);color:var(--brand)}
+
+  /* ---------- modal ---------- */
+  .backdrop{
+    position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:rgba(33,26,21,.34);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    opacity:0;pointer-events:none;transition:.22s;
+  }
+  .backdrop.open{opacity:1;pointer-events:auto}
+  .modal{
+    width:100%;max-width:452px;background:var(--surface);border:1px solid var(--line);
+    border-radius:20px;padding:24px;box-shadow:0 40px 90px -24px rgba(33,26,21,.5);
+    transform:translateY(10px) scale(.985);transition:.24s cubic-bezier(.22,.7,.28,1);
+  }
+  .backdrop.open .modal{transform:none}
+  .modal h3{margin:0 0 4px;font-size:16px;font-weight:700}
+  .modal .sub{margin:0 0 20px;font-size:12.5px;color:var(--muted);line-height:1.65}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:7px}
+  .input-wrap{position:relative;display:flex;align-items:center}
+  .field input{
+    width:100%;padding:11px 40px 11px 12px;border:1px solid var(--line-strong);border-radius:10px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--ink);
+    background:#fff;outline:none;transition:.16s;
+  }
+  .field input:focus{border-color:rgba(217,59,35,.6);box-shadow:0 0 0 3px rgba(217,59,35,.11)}
+  .field input::placeholder{color:#c3b8ab;font-family:inherit}
+  .eye{
+    position:absolute;right:6px;width:28px;height:28px;border:none;background:none;border-radius:7px;
+    color:var(--muted);cursor:pointer;display:grid;place-items:center;
+  }
+  .eye:hover{color:var(--ink-2);background:#f3ece4}
+  .field .tip{font-size:11.5px;color:var(--muted);line-height:1.65;margin-top:7px}
+  .field .tip a{color:var(--brand);text-decoration:none;border-bottom:1px solid rgba(217,59,35,.3)}
+  .field .tip a:hover{border-bottom-color:var(--brand)}
+
+  .adv-toggle{
+    font-size:12px;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;
+    display:flex;align-items:center;gap:5px;margin-bottom:15px;font-family:inherit;
+  }
+  .adv-toggle:hover{color:var(--ink-2)}
+  .adv-toggle::before{content:"›";transition:.2s;display:inline-block;font-size:14px;line-height:1}
+  .adv-toggle.open::before{transform:rotate(90deg)}
+  .advanced{display:none}
+  .advanced.open{display:block}
+
+  .modal-foot{display:flex;align-items:center;gap:10px;margin-top:22px}
+  .modal-foot .btn-danger{
+    background:none;border:none;color:var(--muted);font-size:12px;padding:8px 0;cursor:pointer;font-family:inherit;
+  }
+  .modal-foot .btn-danger:hover{color:var(--brand)}
+  .modal-foot .spacer{flex:1}
+
+  /* ---------- toast ---------- */
+  .toast-wrap{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{
+    background:#211a15;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;
+    box-shadow:0 14px 34px -12px rgba(0,0,0,.55);
+    animation:toastIn .26s cubic-bezier(.22,.7,.28,1);max-width:80vw;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .toast.out{opacity:0;transform:translateY(6px);transition:.3s}
+
+  @media (max-width:980px){
+    body{height:auto;overflow:auto;min-height:100vh}
+    .workspace{grid-template-columns:1fr;padding:14px}
+    .panel{min-height:340px}
+    .panel.result{min-height:420px}
+    .brand-text p{display:none}
+    .topbar{padding:12px 16px}
+  }
+  @media (max-width:560px){
+    .stat-row{grid-template-columns:repeat(2,1fr)}
+    .brand-text h1 span{display:none}
+    .keychip span.label{display:none}
+    .btn-primary kbd{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+      <defs>
+        <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f08a52"/>
+          <stop offset="1" stop-color="#c8301a"/>
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="38" height="38" rx="11.5" fill="url(#mg)"/>
+      <path d="M20 7.6c.5 4.4-.3 8.2-1.9 11.6-.6-1.5-1.4-2.6-2.5-3.4-2.9 2.6-4.7 5.3-4.7 8.6 0 4.6 3.4 8.3 9.1 8.3s9.1-3.9 9.1-8.7c0-3.6-2.1-6.7-4.7-9.6.5 2.2.3 3.9-.5 5.2-1.5-3.6-2.7-7.7-3.9-12z" fill="#fff" opacity=".96"/>
+    </svg>
+    <div class="brand-text">
+      <h1>朱雀 <span>AIGC 文本检测</span></h1>
+      <p>Tencent EdgeOne Makers · @makers/zhuque-text</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="keychip" id="keyChip" type="button">
+      <span class="dot"></span><span class="label" id="keyChipText">未配置密钥</span>
+    </button>
+    <button class="btn btn-ghost" id="settingsBtn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      设置 API Key
+    </button>
+  </div>
+</header>
+
+<main class="workspace">
+  <section class="panel input-panel">
+    <div class="panel-head">
+      <span class="panel-title">待检测文本</span>
+      <span class="counter"><b id="charCount">0</b> 字</span>
+    </div>
+    <textarea id="input" placeholder="粘贴需要检测的文本，支持整篇长文…&#10;&#10;例如：一段论文摘要、一篇公众号推文、一份作业完成稿。"></textarea>
+    <div class="panel-foot">
+      <div class="foot-left">
+        <button class="mini" id="sampleBtn" type="button">填入示例</button>
+        <button class="mini" id="clearBtn" type="button">清空</button>
+        <label class="switch">
+          <input type="checkbox" id="mergeToggle" checked>
+          <span class="track"></span>
+          合并段落
+        </label>
+      </div>
+      <button class="btn btn-primary" id="runBtn" type="button">
+        <span class="spinner"></span>
+        <span class="run-label">开始检测</span>
+        <kbd>⌘↵</kbd>
+      </button>
+    </div>
+  </section>
+
+  <section class="panel result-panel">
+    <div class="panel-head">
+      <span class="panel-title">检测结果</span>
+      <div class="head-right">
+        <span class="meta" id="resultMeta"></span>
+        <button class="icon-btn" id="copyBtn" type="button" title="复制原始 JSON" aria-label="复制原始 JSON" hidden>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="result-body" id="resultBody"></div>
+  </section>
+</main>
+
+<div class="backdrop" id="settingsModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">设置 API Key</h3>
+    <p class="sub">密钥仅保存在本机浏览器，不会上传到任何第三方服务器；检测请求由浏览器直接发往腾讯云 EdgeOne 网关。</p>
+
+    <div class="field">
+      <label for="keyInput">API Key</label>
+      <div class="input-wrap">
+        <input id="keyInput" type="password" placeholder="粘贴 EdgeOne Makers 的 API Key" autocomplete="off" spellcheck="false">
+        <button class="eye" id="eyeBtn" type="button" aria-label="显示密钥">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="tip">
+        获取方式：<a href="https://console.cloud.tencent.com/edgeone/makers?tab=models&subTab=apikey" target="_blank" rel="noopener">EdgeOne 控制台 → Makers → Models → API Key</a>，创建后立即复制保存。
+      </div>
+    </div>
+
+    <button class="adv-toggle" id="advToggle" type="button">高级：自定义接口地址</button>
+    <div class="advanced" id="advanced">
+      <div class="field">
+        <label for="endpointInput">接口地址（Endpoint）</label>
+        <input id="endpointInput" type="text" spellcheck="false" style="font-family:ui-monospace,Menlo,monospace;font-size:12px">
+        <div class="tip">默认走官方网关。若浏览器提示跨域失败，可填写自建的中转/代理地址。</div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-danger" id="clearKeyBtn" type="button">清除本机密钥</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="cancelBtn" type="button">取消</button>
+      <button class="btn btn-primary" id="saveBtn" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  var LS = { key: 'zhuque.apiKey', ep: 'zhuque.endpoint', text: 'zhuque.text' };
+  var DEFAULT_EP = 'https://ai-gateway.edgeone.link/v1/providers/zhuque-text/classify';
+  var C = 2 * Math.PI * 52; // gauge circumference
+
+  var SAMPLE = '在当今数字化浪潮席卷全球的背景下，城市夜经济作为消费升级的重要载体，正展现出前所未有的活力与潜力。它不仅延长了消费时间、拓展了消费空间，更成为衡量一座城市开放度与包容度的重要标尺。从灯火通明的商业街区到烟火气十足的夜市摊位，夜经济的繁荣背后，折射出的是居民消费结构的深刻变迁与城市治理能力的持续提升。\n\n值得注意的是，夜经济的发展并非单纯的商业行为，它还牵动着交通、治安、环卫等一系列城市运行系统。因此，如何在激发市场活力与维护公共秩序之间找到平衡点，成为摆在城市管理者面前的一道必答题。';
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  var state = {
+    key: store.get(LS.key) || '',
+    endpoint: store.get(LS.ep) || DEFAULT_EP,
+    loading: false,
+    last: null
+  };
+
+  var input = $('#input');
+  var runBtn = $('#runBtn');
+  var body = $('#resultBody');
+  var charCount = $('#charCount');
+  var meta = $('#resultMeta');
+  var copyBtn = $('#copyBtn');
+  var keyChip = $('#keyChip');
+  var keyChipText = $('#keyChipText');
+  var modal = $('#settingsModal');
+  var keyInput = $('#keyInput');
+  var endpointInput = $('#endpointInput');
+  var advToggle = $('#advToggle');
+  var advanced = $('#advanced');
+  var toastWrap = $('#toastWrap');
+
+  /* ---------------- utils ---------------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function clamp01(n) { n = Number(n); if (!isFinite(n)) return 0; return Math.max(0, Math.min(1, n)); }
+  function pct(n, digits) {
+    var d = digits == null ? 1 : digits;
+    return (clamp01(n) * 100).toFixed(d) + '%';
+  }
+  function num(n, digits) {
+    n = Number(n);
+    if (!isFinite(n)) return '—';
+    return n.toFixed(digits == null ? 3 : digits);
+  }
+  function toast(msg) {
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    toastWrap.appendChild(el);
+    setTimeout(function () {
+      el.classList.add('out');
+      setTimeout(function () { el.remove(); }, 320);
+    }, 2400);
+  }
+
+  var LABELS = {
+    0: { name: '人工', tone: 'human' },
+    1: { name: 'AI 生成', tone: 'ai' },
+    2: { name: '疑似 AI', tone: 'suspect' }
+  };
+
+  function verdictFor(score) {
+    if (score >= 0.85) return { tone: 'ai', label: '高度疑似 AI 生成', desc: '用词、句式与行文节奏高度吻合 AI 生成特征，建议谨慎采信。' };
+    if (score >= 0.50) return { tone: 'ai', label: '较可能为 AI 生成', desc: '多处特征指向 AI 生成，建议结合上下文人工复核。' };
+    if (score >= 0.20) return { tone: 'suspect', label: '存在 AI 参与迹象', desc: '部分片段呈现 AI 生成特征，可能是人工与 AI 混合创作。' };
+    return { tone: 'human', label: '大概率由人工撰写', desc: '文本特征更接近人类写作，未发现明显的 AI 生成痕迹。' };
+  }
+
+  /* ---------------- UI state ---------------- */
+
+  function updateKeyChip() {
+    if (state.key) {
+      var tail = state.key.length > 4 ? state.key.slice(-4) : '';
+      keyChip.classList.add('ok');
+      keyChipText.textContent = '密钥已配置' + (tail ? ' · ····' + tail : '');
+      keyChip.title = '点击修改 API Key';
+    } else {
+      keyChip.classList.remove('ok');
+      keyChipText.textContent = '未配置密钥';
+      keyChip.title = '点击设置 API Key';
+    }
+  }
+
+  function updateCount() {
+    var n = input.value.length;
+    charCount.textContent = n.toLocaleString('zh-CN');
+    charCount.parentElement.style.color = n > 20000 ? '#d93b23' : '';
+  }
+
+  var saveTimer = null;
+  function scheduleSaveText() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { store.set(LS.text, input.value); }, 400);
+  }
+
+  /* ---------------- render ---------------- */
+
+  function emptyState() {
+    return '' +
+      '<div class="empty">' +
+        '<svg width="58" height="58" viewBox="0 0 64 64" fill="none" stroke="#c9bdb0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M16 8h22l10 10v38a2 2 0 0 1-2 2H16a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/>' +
+          '<path d="M38 8v10h10"/>' +
+          '<path d="M22 30h20M22 38h20M22 46h11"/>' +
+        '</svg>' +
+        '<h3>检测结果将在这里出现</h3>' +
+        '<p>左侧粘贴文本后点击「开始检测」</p>' +
+        '<ul>' +
+          '<li><b>01</b><span>左上角输入整篇内容，支持长文</span></li>' +
+          '<li><b>02</b><span>先到右上角配置 EdgeOne API Key</span></li>' +
+          '<li><b>03</b><span>关闭「合并段落」可查看逐段置信度</span></li>' +
+        '</ul>' +
+      '</div>';
+  }
+
+  function loadingState() {
+    return '' +
+      '<div class="loading">' +
+        '<div class="loading-note"><span class="pulse"></span>朱雀正在分析文本特征…</div>' +
+        '<div class="skel" style="height:104px"></div>' +
+        '<div class="skel" style="height:56px"></div>' +
+        '<div class="skel" style="height:120px"></div>' +
+        '<div class="skel" style="height:74px"></div>' +
+      '</div>';
+  }
+
+  function renderResult(data, ms) {
+    var score = clamp01(data.softmax_confidence);
+    var risk = clamp01(data.ratio_confidence);
+    var ratios = data.labels_ratio || {};
+    var r0 = clamp01(ratios['0'] != null ? ratios['0'] : ratios[0]);
+    var r1 = clamp01(ratios['1'] != null ? ratios['1'] : ratios[1]);
+    var r2 = clamp01(ratios['2'] != null ? ratios['2'] : ratios[2]);
+    var v = verdictFor(score);
+
+    var usage = data.usage || {};
+    var musage = data.makers_models_usage || {};
+    var tokens = musage.total_tokens != null ? musage.total_tokens : usage.total_tokens;
+
+    var segs = Array.isArray(data.segment_labels) ? data.segment_labels.slice() : [];
+    segs.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+
+    var html = '';
+
+    html += '<div class="verdict tone-' + v.tone + '">';
+    html += '  <div class="gauge">';
+    html += '    <svg viewBox="0 0 120 120">';
+    html += '      <circle class="track-c" cx="60" cy="60" r="52"></circle>';
+    html += '      <circle class="arc" id="gaugeArc" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"></circle>';
+    html += '    </svg>';
+    html += '    <div class="gauge-center"><b>' + (score * 100).toFixed(0) + '</b><span>%</span></div>';
+    html += '  </div>';
+    html += '  <div class="verdict-text">';
+    html += '    <div class="tag">' + esc(v.label) + '</div>';
+    html += '    <p>' + esc(v.desc) + '</p>';
+    html += '  </div>';
+    html += '</div>';
+
+    html += '<div class="stat-row">';
+    html += '  <div class="stat"><span>整体置信度</span><b>' + num(score, 3) + '</b></div>';
+    html += '  <div class="stat"><span>风险占比</span><b>' + num(risk, 3) + '</b></div>';
+    html += '  <div class="stat"><span>响应耗时</span><b>' + (ms / 1000).toFixed(2) + 's</b></div>';
+    html += '  <div class="stat"><span>消耗 Token</span><b>' + (tokens != null ? Number(tokens).toLocaleString('zh-CN') : '—') + '</b></div>';
+    html += '</div>';
+
+    html += '<div class="card">';
+    html += '  <div class="card-title">内容构成<em>按段落字符长度加权</em></div>';
+    html += barRow('人工', r0, 'c-human');
+    html += barRow('AI 生成', r1, 'c-ai');
+    html += barRow('疑似 AI', r2, 'c-suspect');
+    html += '</div>';
+
+    if (segs.length) {
+      html += '<div class="card">';
+      html += '  <div class="card-title">段落明细<em>' + (segs.length === 1 ? '合并模式 · 全文 1 段' : '共 ' + segs.length + ' 段') + '</em></div>';
+      html += '  <ul class="segments">';
+      for (var i = 0; i < segs.length; i++) {
+        var s = segs[i] || {};
+        var L = LABELS[s.label] || { name: '未知', tone: 'human' };
+        var conf = clamp01(s.conf);
+        html += '<li class="segment tone-' + L.tone + '">';
+        html += '  <div class="seg-top">';
+        html += '    <span class="seg-idx">#' + (s.order != null ? s.order : i + 1) + '</span>';
+        html += '    <span class="chip">' + esc(L.name) + '</span>';
+        html += '    <span class="seg-conf">置信度 ' + pct(conf) + '</span>';
+        html += '  </div>';
+        html += '  <p class="seg-text">' + esc(s.text) + '</p>';
+        html += '</li>';
+      }
+      html += '  </ul>';
+      html += '</div>';
+    }
+
+    html += '<details class="raw"><summary>原始响应 JSON</summary><pre>' + esc(JSON.stringify(data, null, 2)) + '</pre></details>';
+
+    body.innerHTML = html;
+
+    requestAnimationFrame(function () {
+      var arc = document.getElementById('gaugeArc');
+      if (arc) arc.style.strokeDashoffset = String(C * (1 - score));
+      var fills = body.querySelectorAll('.bar-fill');
+      for (var j = 0; j < fills.length; j++) {
+        var el = fills[j];
+        el.style.width = el.getAttribute('data-w');
+      }
+    });
+
+    meta.textContent = '置信度 ' + num(score, 3) + ' · ' + (ms / 1000).toFixed(2) + 's';
+    copyBtn.hidden = false;
+  }
+
+  function barRow(name, value, cls) {
+    return '<div class="bar-row">' +
+      '<span>' + name + '</span>' +
+      '<span class="bar-track"><span class="bar-fill ' + cls + '" data-w="' + (clamp01(value) * 100).toFixed(1) + '%"></span></span>' +
+      '<span class="bar-val">' + pct(value) + '</span>' +
+      '</div>';
+  }
+
+  function renderError(err) {
+    var code = err && err.code;
+    var title = '检测失败';
+    var msg = (err && err.message) || '未知错误';
+    var hint = '';
+
+    if (code === 401 || code === 403) {
+      title = '鉴权失败（' + code + '）';
+      if (/api key not found|auth_failed|api\s*key/i.test(msg)) {
+        msg = 'API Key 无效或不存在，网关未能识别该密钥。';
+      }
+      hint = '请检查 API Key 是否正确、是否已被删除。密钥在 EdgeOne 控制台 → Makers → Models → API Key 中创建。';
+    } else if (code === 429) {
+      title = '调用频率超限（429）';
+      hint = '短时间内请求过多，请稍后重试。';
+    } else if (code === 402 || /quota|额度/i.test(msg)) {
+      title = '免费额度不足';
+      hint = '本月 Makers 内置模型额度可能已用尽，可在 EdgeOne 控制台查看用量。';
+    } else if (code >= 500) {
+      title = '服务异常（' + code + '）';
+      hint = '上游推理服务暂时不可用，请稍后重试。';
+    } else if (err && err.name === 'TypeError') {
+      title = '请求未送达';
+      msg = '浏览器未能完成这次跨域请求，Text 内容没有发出。';
+      hint = '常见原因：网络不可达、被广告拦截插件拦截，或接口未允许浏览器直接跨域访问。可展开设置中的「自定义接口地址」，填写自建中转地址。';
+    } else if (err && err.name === 'SyntaxError') {
+      title = '响应解析失败';
+      hint = '接口返回的不是标准 JSON，请检查接口地址是否正确。';
+    }
+
+    body.innerHTML =
+      '<div class="error-card">' +
+        '<h4>' + esc(title) + '</h4>' +
+        '<p>' + esc(msg) + '</p>' +
+        (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') +
+        '<button class="btn btn-ghost" id="retryBtn" type="button">重试</button>' +
+      '</div>';
+
+    var retry = document.getElementById('retryBtn');
+    if (retry) retry.addEventListener('click', detect);
+
+    meta.textContent = '';
+    copyBtn.hidden = true;
+  }
+
+  /* ---------------- detect ---------------- */
+
+  async function detect() {
+    if (state.loading) return;
+
+    var text = input.value.trim();
+    if (!text) {
+      toast('请先输入需要检测的文本');
+      input.focus();
+      return;
+    }
+    if (!state.key) {
+      toast('请先设置 API Key');
+      openSettings();
+      return;
+    }
+    if (text.length > 20000) toast('文本较长，超出部分可能影响准确度，建议分段检测');
+
+    state.loading = true;
+    runBtn.classList.add('loading');
+    runBtn.disabled = true;
+    body.innerHTML = loadingState();
+    meta.textContent = '';
+    copyBtn.hidden = true;
+
+    var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+
+    try {
+      var res = await fetch(state.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + state.key
+        },
+        body: JSON.stringify({ text: text, is_merge: $('#mergeToggle').checked })
+      });
+
+      var ms = ((window.performance && performance.now) ? performance.now() : Date.now()) - t0;
+      var rawText = await res.text();
+      var data = null;
+      try { data = JSON.parse(rawText); } catch (e) { data = null; }
+
+      if (!res.ok) {
+        var emsg = '';
+        if (data) emsg = data.msg || (data.error && (data.error.message || data.error)) || data.message || '';
+        if (typeof emsg !== 'string') emsg = JSON.stringify(emsg);
+        if (!emsg) emsg = rawText ? rawText.slice(0, 200) : ('HTTP ' + res.status);
+        var e1 = new Error(emsg);
+        e1.code = res.status;
+        throw e1;
+      }
+      if (!data) {
+        var e2 = new SyntaxError('返回内容不是合法 JSON');
+        e2.code = res.status;
+        throw e2;
+      }
+      if (data.status && data.status !== 'success') {
+        var e3 = new Error(data.msg || '推理状态异常：' + data.status);
+        e3.code = res.status;
+        throw e3;
+      }
+
+      state.last = { data: data, text: text, ms: ms };
+      renderResult(data, ms);
+    } catch (err) {
+      state.last = null;
+      renderError(err);
+    } finally {
+      state.loading = false;
+      runBtn.classList.remove('loading');
+      runBtn.disabled = false;
+    }
+  }
+
+  /* ---------------- settings ---------------- */
+
+  function openSettings() {
+    keyInput.value = state.key;
+    endpointInput.value = state.endpoint;
+    keyInput.type = 'password';
+    modal.classList.add('open');
+    setTimeout(function () { keyInput.focus(); }, 60);
+  }
+  function closeSettings() {
+    modal.classList.remove('open');
+  }
+  function saveSettings() {
+    var k = keyInput.value.trim();
+    var ep = endpointInput.value.trim() || DEFAULT_EP;
+    state.key = k;
+    state.endpoint = ep;
+    if (k) store.set(LS.key, k); else store.del(LS.key);
+    if (ep !== DEFAULT_EP) store.set(LS.ep, ep); else store.del(LS.ep);
+    updateKeyChip();
+    closeSettings();
+    toast(k ? '已保存 API Key' : '已清除 API Key');
+  }
+
+  /* ---------------- events ---------------- */
+
+  input.addEventListener('input', function () { updateCount(); scheduleSaveText(); });
+  input.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); detect(); }
+  });
+
+  runBtn.addEventListener('click', detect);
+
+  $('#sampleBtn').addEventListener('click', function () {
+    input.value = SAMPLE;
+    updateCount();
+    store.set(LS.text, input.value);
+    input.focus();
+    toast('已填入示例文本');
+  });
+
+  $('#clearBtn').addEventListener('click', function () {
+    input.value = '';
+    updateCount();
+    store.del(LS.text);
+    input.focus();
+  });
+
+  $('#settingsBtn').addEventListener('click', openSettings);
+  keyChip.addEventListener('click', openSettings);
+  $('#cancelBtn').addEventListener('click', closeSettings);
+  $('#saveBtn').addEventListener('click', saveSettings);
+
+  $('#clearKeyBtn').addEventListener('click', function () {
+    state.key = '';
+    keyInput.value = '';
+    store.del(LS.key);
+    updateKeyChip();
+    toast('已清除本机密钥');
+  });
+
+  $('#eyeBtn').addEventListener('click', function () {
+    keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+    keyInput.focus();
+  });
+
+  keyInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); saveSettings(); }
+  });
+
+  advToggle.addEventListener('click', function () {
+    advToggle.classList.toggle('open');
+    advanced.classList.toggle('open');
+  });
+
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) closeSettings();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeSettings();
+  });
+
+  copyBtn.addEventListener('click', function () {
+    if (!state.last) return;
+    var txt = JSON.stringify(state.last.data, null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { toast('JSON 已复制'); }, function () { toast('复制失败'); });
+    } else {
+      toast('当前环境不支持剪贴板');
+    }
+  });
+
+  /* ---------------- boot ---------------- */
+
+  var savedText = store.get(LS.text);
+  if (savedText) input.value = savedText;
+  updateCount();
+  updateKeyChip();
+  body.innerHTML = emptyState();
+})();
+</script>
+</body>
+</html>
