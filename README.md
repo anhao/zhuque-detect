@@ -169,6 +169,13 @@ Content-Type: application/json
 **提示「鉴权失败（401）」怎么办？**
 说明 Key 无效或已被删除。回到 EdgeOne 控制台 → Makers → API Key 重新创建，注意复制完整、不要带多余空格。
 
+**push 之后没有触发自动部署？**
+说明 GitHub 授权没走完。到 Cloudflare 控制台 → 该项目 → **Settings → Builds & deployments**，确认仓库已授权、生产分支为 `main`；必要时在这一页重新连接一次 Git 仓库。也可以随时手动发布：
+
+```bash
+npx wrangler pages deploy . --project-name zhuque-detect
+```
+
 **检测准确率靠谱吗？**
 模型给出的是概率判断，不是证据。短文本、专业术语密集的文本、经过人工润色的 AI 文本都可能误判，请结合上下文使用。
 
