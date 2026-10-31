@@ -6,7 +6,7 @@
 
 一个单文件、零依赖、零后端的网页工具 · 基于腾讯云 EdgeOne Makers 内置的朱雀（Zhuque）模型
 
-[快速开始](#快速开始) · [获取-API-Key](#获取-api-key) · [部署到-Cloudflare-Pages](#部署到-cloudflare-pages) · [工作原理](#工作原理)
+[在线体验](https://zhuque-detect.anhao.app) · [快速开始](#快速开始) · [获取-API-Key](#获取-api-key) · [部署到-Cloudflare-Pages](#部署到-cloudflare-pages) · [工作原理](#工作原理)
 
 </div>
 
@@ -51,7 +51,7 @@
 三步，不需要装任何东西。
 
 1. **拿一个 API Key** —— 见下一节 [获取 API Key](#获取-api-key)。
-2. **打开页面** —— 双击本仓库的 `index.html`，或访问你的部署地址。
+2. **打开页面** —— 访问 <https://zhuque-detect.anhao.app>，或双击本仓库的 `index.html`。
 3. **粘贴文本 → 点「开始检测」** —— 首次使用会提示你填入 Key。
 
 想在本地起个服务（可选）：
